@@ -1,0 +1,237 @@
+------------------------------------------------------------
+----- iP6 Unix/X ver 0.6.4 ---------------------------------
+----- by ISHIOKA Hiroshi 00/10/13 --------------------------
+------------------------------------------------------------
+
+
+はじめに ---------------------------------------------------
+
+iP6 は、NEC PC-6000/6600 シリーズのエミュレータです。
+X Window System の下で動作します。
+Moriya 氏により Windows への移植が行われています。
+
+動作させるには ---------------------------------------------
+
+ip6-0.x.y.tar.gz を展開すると iP6-0.x.y というディレクトリができます。
+(0.x.yはヴァージョン番号)
+このディレクトリに移動し、make とするだけで iP6 が出来上がります。
+但し、Linux 以外のときはオプションを変更する必要があるでしょう。
+Makefile を編集してご利用ください。
+報告を頂いたものについては、Makefile に用意してあります。
+
+実行するにあたって他に必要なファイルは、以下の通りです。
+これらのファイルはこのパッケージには含まれておりません。
+作者のホームページにある saver と、かとぺ氏作の wav2bin か
+森川氏作の P6DatRec を利用すると、比較的簡単に用意できるでしょう。
+
+Ver0.6.3 から、PC-6001mk2SR/PC-6601SR にはシステムROM2 が必要に
+なりました。ご注意ください。
+
+  <PC-6001 として利用する場合>
+    BASICROM.60 (16KB) N60-BASICインタプリタROM
+    CGROM60.60  ( 4KB) N60-BASIC用CGROM
+
+  <PC-6001mk2 として利用する場合>
+    BASICROM.62 (32KB) N60m-BASICインタプリタROM
+    CGROM60.62  ( 8KB) N60-BASIC用CGROM
+    CGROM60m.62 ( 8KB) N60m-BASIC用CGROM
+    KANJIROM.62 (32KB) 漢字ROM
+    VOICEROM.62 (16KB) 音声合成ROM
+
+  <PC-6001mk2SR として利用する場合>
+    BASICROM.64 (32KB) N66-BASICインタプリタROM
+    CGROM60.64  ( 8KB) N60-BASIC用CGROM
+    CGROM66.64  ( 8KB) N66-BASIC用CGROM
+    KANJIROM.64 (32KB) 漢字ROM
+    VOICEROM.64 (16KB) 音声合成ROM
+    SYSROM2.64  ( 8KB) システムROM2
+
+  <PC-6601 として利用する場合>
+    BASICROM.66 (32KB) N66-BASICインタプリタROM
+    CGROM60.66  ( 8KB) N60-BASIC用CGROM
+    CGROM66.66  ( 8KB) N66-BASIC用CGROM
+    KANJIROM.66 (32KB) 漢字ROM
+    VOICEROM.66 (16KB) 音声合成ROM
+
+  <PC-6601SR として利用する場合>
+    BASICROM.68 (32KB) N66-BASICインタプリタROM
+    CGROM60.68  ( 8KB) N60-BASIC用CGROM
+    CGROM66.68  ( 8KB) N66-BASIC用CGROM
+    KANJIROM.68 (32KB) 漢字ROM
+    VOICEROM.68 (16KB) 音声合成ROM
+    SYSROM2.68  ( 8KB) システムROM2
+
+これらのファイルをカレントディレクトリに用意しておいてください。
+PC-6001mk2SR/PC-6601SR の N66SR-BASIC には対応していません。
+
+
+オプション -------------------------------------------------
+
+Usage: iP6 [-option1 [-option2...]]
+[-option]   =
+  -uperiod <period>   - Number of interrupts per screen update [2]
+  -help               - Print this help page
+  -shm/-noshm         - Use/don't use MIT SHM extensions for X [-shm]
+  -trap <address>     - Trap execution when PC reaches address [FFFFh]
+  -60/62/64/66/68     - Select P6 model [-62] (see below)
+  -rom1 <filename>    - Load external ROM file to &h4000 [off]
+  -rom2 <filename>    - Load external ROM file to &h6000 [off]
+  -tape <filename>    - Set tape image file [off]
+  -printer <filename> - Redirect printer output to file [stdout]
+  -scr4col            - Colored N60 screen 4 mode [off]
+  -saver/-nosaver     - Save/don't save CPU when inactive [-saver]
+  -sound/-nosound     - Play/don't play sound [-nosound]
+  -patch <n>          - Set patch level(0-1) [1]
+  -drawWait <n>       - Screen drawing wait [192]
+  -clock <n>          - Z80 clock [4MHz]
+  -wait/-nowait       - Use/don't use wait [-nowait]
+  -scale <n>          - Select screen size(1-2) [2]
+  -intlac/-nointlac   - Use/don't interlace [-nointlac]
+
+上記のオプションのうち一部は動作中に変更することもできます。
+また、上記のオプションのうち一部はXツールキットのリソースファイルで
+設定することもできます。
+
+<-60/62/64/66/68 について>
+  60…PC-6001,		62…PC-6001mk2,		64…PC-6001mk2SR
+  66…PC-6601,		68…PC-6601SR
+
+<patch について>
+-patch 1 のとき、
+・-60 のときは RAM を 16KB だと認識するように、
+・-66 のときはインタプリタ ROM がディスク初期化部分を飛ばすように、
+・-64,-68 のときは 6601 の BASIC モードメニューを使うように、
+BASIC インタプリタ ROM に変更を加えます。
+-60 時に RAM 32KB の状態にするには -patch 0 として起動してください。
+
+
+キー配列について -------------------------------------------
+
+以下のように変更してあります。
+  GRAPH    → Alt(L)
+  STOP     → Pause
+  かな     → Ctrl(R)	(AutoRepeat が効かない)
+  PAGE     → PgUp, PgDn
+  DEL      → Del, BackSpace
+  MODE     → F9	(-60 のときは使えません)
+  HOME/CLS → Home
+また、
+  「￥/ー」と「＿/ろ」のキーはひとつにまとめる。但し、
+  ・英字のときは「￥」、シフトで「＿」
+  ・かなのときは「ろ」、シフトで「ー」
+  ・GRAPHで「円」、「◆」はGRAPH + @
+  とする。
+となっています。
+F12 で終了します。
+Ver0.6.2 からテンキーにも対応しましたが、NumLock の状態に関係なく、
+常に数字を入力します。カーソルキーとしては使えません。
+
+コンパイル時に DEBUG が define されていれば、F11 でデバッグモードに
+入ります。最初からデバッグモードにしたい場合は、-trap 0 と
+してください。デバッグモードについては、デバッグモードで ? を
+入力するとヘルプが出ます。
+
+
+設定パネル -------------------------------------------------
+
+iP6 の動作中に F10 キーを押すと、設定用のパネルが現れます。
+
+ここでは、テープファイル、プリンタファイル等の指定ができます。
+テープファイルを変更するときは tape と書かれたボタンをクリックします。
+ディスクファイルは現在使えません。
+拡張ROMファイルを動作中に変更することはできません。
+
+その他の項目の内容は以下の通りです。
+  uperiod  : 画面の更新を何回に1回行うか。1なら60fps。
+  clock    : 動作クロック。標準は4(MHz)。
+  drawWait : 描画ウェイト。標準は192。
+  
+  scr4col  : N60-BASICのSCREEN4をカラー表示にする。
+  save CPU : iP6がアクティブでないときには動作を停止する。
+  use Wait : 実際のZ80に近い速度で走るようウェイトをかける。
+  IntLac   : インターレースのON/OFF。
+	     -scale 1 のとき、このオプションは意味を持ちません。
+
+uperiod, clock, drawWait, use wait を変更することで動作速度が
+変わりますが、極端に標準と違う値に設定すると誤動作を招く恐れが
+あります。
+
+このパネルが現れている間は、メインウィンドウは停止しており、
+設定パネルの close ボタンでパネルをクローズすると動作が再開します。
+
+また、設定パネルをウィンドウマネージャを使ってクローズすると
+iP6 ごと終了してしまうので注意してください。
+
+
+できること、できないこと -----------------------------------
+
+現在サポートしていない機能のうち、作者が把握しているものは、
+  ・音声合成
+  ・ディスク入出力
+  ・シリアルポート入出力
+  ・ジョイスティック、タッチパネル入力
+  ・SR 特有の機能
+です。
+
+現在判明している不具合は、
+  ・subCPU との通信が不十分
+です。
+
+今後サポートする予定の機能は、
+  ・スナップショット機能
+です。
+
+
+作者への連絡 ------------------------------------------------
+
+このプログラムはまだ開発途上のものです。
+この環境ではコンパイルできた、できなかった、
+実行できたが、このような動作をさせたら動かなかったといった
+バグレポートや動作報告等はいつでも受け付けています。メールは
+	next66@geocities.co.jp
+にお願いします。ホームページ
+	http://www.geocities.co.jp/SiliconValley-PaloAlto/8861/
+にあるゲストブックを使っていただいても構いません。
+前出の saver もこのページ内にあります。
+
+
+謝辞 -------------------------------------------------------
+
+このプログラムを開発するにあたり、
+資料を与えてくださったhokuten氏、markn氏、仙石氏、K_Take氏、
+P6本体を譲ってくださったバン氏、寺門氏、前田氏に感謝します。
+また、このプログラムはMSXエミュレータ fMSX を参考に作られています。
+fMSXの作者Marat Fayzullin氏に感謝します。
+ヴァージョン0.6.0で追加された画面表示機能(8bpp以外への対応と
+画面の拡大表示)は fMSX 用 X-drivers のコードを借用しました。
+このドライバの作者 Arnold Metselaar氏に感謝します。
+動作報告やバグレポートを送ってくださるユーザの方々、
+特にWindows版を製作されているmoriya氏に感謝します。
+
+最後に、このパソコンを開発したNECの方々に感謝します。
+
+
+参考資料 ---------------------------------------------------
+
+PC-6001mk2解析マニュアル1/岡村秀一郎著/秀和システムトレーディング
+PC-Techknow6000Vol.1/一零・樋口理・八木良一共著/アスキー
+PC-6001mk2取扱説明書/NEC
+Oh!PC別冊ハローMr.PC
+Mr.PCテクニカルコレクション/岡村秀一郎著/秀和システムトレーディング
+
+
+関連情報 ---------------------------------------------------
+
+iP6 for win(moriya氏)
+	http://www02.so-net.ne.jp/~m-moriya/pc6001/
+P6DatRec(森川氏)
+	http://w3mb.kcom.ne.jp/%7Emorikawa/soft.html
+PC-6001 WORLD(hokuten氏)
+	http://www.dosanko.co.jp/hid/hokuten/pc-6001/
+fMSX(Marat Fayzullin氏)
+	http://www.komkon.org/fms/fMSX/
+
+---
+大阪大学 基礎工学部 情報工学科
+石岡 裕司 <next66@geocities.co.jp>
+http://www.geocities.co.jp/SiliconValley-PaloAlto/8861/

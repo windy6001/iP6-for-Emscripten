@@ -1,0 +1,10 @@
+*.6?
+*.ROM
+.DS_Store
+*.o
+iP6.data
+iP6.wasm
+iP6.html
+dist.sh
+*.tar.gz
+
