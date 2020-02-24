@@ -192,11 +192,6 @@ int InitMachine(void)
     }
     printf("Ok\n    SDL_CreateWindow ...");
     
-    if( !SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas")) 
-        {
-            printf("SetHint failed \n");
-        }
-    //https://tutorialmore.com/questions-1914305.htm
 
 
     sdlWindow = SDL_CreateWindow(
@@ -359,29 +354,28 @@ void Keyboard(void)
 {
   SDL_Event e;
    
+  //printf("keyboard ");
   	
 #if 1
-  //XEvent E;
   int J;
 
 #ifdef SOUND
-  FlushSound();  /* Flush sound stream on each interrupt */
+  //FlushSound();  /* Flush sound stream on each interrupt */
 #endif
 //  if(XCheckWindowEvent(Dsp,Wnd,KeyPressMask|KeyReleaseMask,&E))
    //printf("keyup %c ", e.key.keysym.sym);
-  //printf("keyboard \n");
 
   int ret= SDL_PollEvent( &e);
   if( ret==0) return;
-  //printf("keyboard\n");
+  //printf("keyboard %04X \n" , e.type );
   
-  if( e.type == SDL_QUIT) exit(0);
+ // if( e.type == SDL_QUIT) exit(0);
   
   if( e.type == SDL_KEYDOWN ||  e.type == SDL_KEYUP)
   {
     //J=XLookupKeysym((XKeyEvent *)&E,0);
     J= e.key.keysym.sym;
-    printf("%02X \n",J);
+   // printf("%02X \n",J);
     /* for stick,strig */
     {
       byte tmp;

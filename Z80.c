@@ -560,6 +560,11 @@ int WaitFlag = 1;
 extern int portF7;
 void unixIdle();
 
+  static int HCount = 0;
+  int	NowClock;
+  long StartCount;
+  int hline;
+
 /*** Interpret Z80 code: **********************************/
 /*** Registers have initial values from Regs. PC value  ***/
 /*** at which emulation stopped is returned by this     ***/
@@ -573,12 +578,12 @@ void Z80(void)
  int cnt =0;
   register byte I, j;
   register pair J;
-
+/*
   static int HCount = 0;
   int	NowClock;
   long StartCount;
   int hline;
-
+*/
   CPURunning=1;
 #ifndef __EMSCRIPTEN__
   for(;;)
@@ -592,97 +597,93 @@ void Z80(void)
 
       // 1水平ライン分の処理を開始する
       while(ClockCount > 0) {
-
-
 #ifdef DEBUG
-	/* Turn tracing on when reached trap address */
-	if(R.PC.W==Trap) Trace=1;
-	/* Call single-step debugger, exit if requested */
-	if(Trace) if(!Debug(&R)) return(R.PC.W);
+		/* Turn tracing on when reached trap address */
+		if(R.PC.W==Trap) Trace=1;
+		/* Call single-step debugger, exit if requested */
+		if(Trace) if(!Debug(&R)) return(R.PC.W);
 #endif
 
-	StartCount = ClockCount;
+		StartCount = ClockCount;
 
-    //printf("PC:%04X ",R.PC.W);
-	switch((j=M_RDMEM(R.PC.W++)))
-	  {
+		switch((j=M_RDMEM(R.PC.W++)))
+	  		{
 #include "Codes.h"
-	  case PFX_CB: CodesCB();break;
-	  case PFX_ED: CodesED();break;
-	  case PFX_FD: CodesFD();break;
-	  case PFX_DD: CodesDD();break;
-	  case HALT: 
-	    ClockCount=0;
+	  		case PFX_CB: CodesCB();break;
+	  		case PFX_ED: CodesED();break;
+	  		case PFX_FD: CodesFD();break;
+	  		case PFX_DD: CodesDD();break;
+	  		case HALT: 
+	    				ClockCount=0;
 #ifdef INTERRUPTS
-	    if(R.IFF&0x01) { R.PC.W--;R.IFF|=0x80; }
+				    if(R.IFF&0x01) { R.PC.W--;R.IFF|=0x80; }
 #else
-	    printf("CPU HALTed and stuck at PC=%hX\n",--R.PC.W);
-	    CPURunning=0;
+	    			   printf("CPU HALTed and stuck at PC=%hX\n",--R.PC.W);
+	    			   CPURunning=0;
 #endif   
-	    R.IFF|=0x80;
-	    break;
-	  default:
-	    if(TrapBadOps)
-	      printf
-		(
-		 "Unrecognized instruction: %X at PC=%hX\n",
-		 M_RDMEM(R.PC.W-1),R.PC.W-1
-		 );
-	  }
+				    R.IFF|=0x80;
+	    			    break;
+	 		 default:
+	    			if(TrapBadOps)
+	      				printf
+					(
+		 			"Unrecognized instruction: %X at PC=%hX\n",
+		 			M_RDMEM(R.PC.W-1),R.PC.W-1
+		 			);
+	  		}
 
-	ClockCount-=cycles_main[j]+1;
-	NowClock = StartCount - ClockCount;
-	/* 実行したクロック数を保存する */
-	TClock += NowClock;
-	/* タイマー割り込みクロック数の計算 */
-	TintClockRemain-= NowClock;
-	/* CMT割り込みクロック数の計算 */
-	CmtClockRemain-= NowClock;
+		ClockCount-=cycles_main[j]+1;
+		NowClock = StartCount - ClockCount;
+		/* 実行したクロック数を保存する */
+		TClock += NowClock;
+		/* タイマー割り込みクロック数の計算 */
+		TintClockRemain-= NowClock;
+		/* CMT割り込みクロック数の計算 */
+		CmtClockRemain-= NowClock;
 
-	/* タイマー割り込みの発生？ */
-	if (TintClockRemain <= 0) {
-	  /*TintClockRemain += TimerInt_Clock;*/
-	  TintClockRemain = TimerInt_Clock;
-	  if(TimerSW && TimerSWFlag & TimerSW_F3) {
-	    IFlag=1;
-	    TimerIntFlag = INTFLAG_REQ;
-	  }
-	}
+		/* タイマー割り込みの発生？ */
+		if (TintClockRemain <= 0) {
+	  		/*TintClockRemain += TimerInt_Clock;*/
+	  		TintClockRemain = TimerInt_Clock;
+	  		if(TimerSW && TimerSWFlag & TimerSW_F3) {
+	    			IFlag=1;
+	    			TimerIntFlag = INTFLAG_REQ;
+	  		}
+		}
 	
-	/* CMT割り込みの発生許可？ */
-	if (CmtClockRemain <= 0) {
-	  /* 割り込み許可状態？ */
-	  if (R.IFF&0x01) {
-	    IFlag = 1;
-	    CmtClockRemain = CmtInt_Clock;
-	    enableCmtInt();
-	  }
-	}
+		/* CMT割り込みの発生許可？ */
+		if (CmtClockRemain <= 0) {
+	  		/* 割り込み許可状態？ */
+	  		if (R.IFF&0x01) {
+	    			IFlag = 1;
+	    			CmtClockRemain = CmtInt_Clock;
+	    			enableCmtInt();
+	  		}
+		}
 
-	if ((TimerIntFlag == INTFLAG_REQ) ||
-	    (CmtIntFlag == INTFLAG_REQ) ||
-	    (KeyIntFlag == INTFLAG_REQ))
-	  break;
-		
-      } /* while(ClockCount > 0) { */
+	    if ((TimerIntFlag == INTFLAG_REQ) ||
+	    	(CmtIntFlag == INTFLAG_REQ) ||
+	    	(KeyIntFlag == INTFLAG_REQ))
+	  		break;
+     	 } /* while(ClockCount > 0) { */
 
       /* １画面分の有効スキャンラインにかかる処理時間分を実行したら
 	 画面の更新処理 */
       /* 262は表示する画面のスキャンライン数 */
       if (ClockCount <= 0) {
-	hline++;
-	ClockCount += z80_clock/(60*262);
-	  // キーボード状態をチェックする
+		hline++;
+		ClockCount += z80_clock/(60*262);
+	  	// キーボード状態をチェックする
 	       Keyboard();
-	if (++HCount == 262) {
-	  HCount = 0;
-	  // キーボード状態をチェックする
-	       /*Keyboard();*/
-	  /* 割り込みを発生させる
-	     （他の割り込み処理を帰線期間で検出させるため） */
-	  IFlag=1;
-	}
-      }
+		if (++HCount == 262) {
+	  		HCount = 0;
+	  		// キーボード状態をチェックする
+	       		/*Keyboard();*/
+	  		/* 割り込みを発生させる
+	     		（他の割り込み処理を帰線期間で検出させるため） */
+	  		IFlag=1;
+		}
+      	}
 
       if(IFlag)
       {
