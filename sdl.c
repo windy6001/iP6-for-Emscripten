@@ -353,74 +353,63 @@ int InitMachine(void)
 void Keyboard(void)
 {
   SDL_Event e;
-   
-  //printf("keyboard ");
-  	
-#if 1
-  int J;
+   int J;
 
 #ifdef SOUND
-  //FlushSound();  /* Flush sound stream on each interrupt */
+  FlushSound();  /* Flush sound stream on each interrupt */
 #endif
-//  if(XCheckWindowEvent(Dsp,Wnd,KeyPressMask|KeyReleaseMask,&E))
-   //printf("keyup %c ", e.key.keysym.sym);
-
   int ret= SDL_PollEvent( &e);
   if( ret==0) return;
-  //printf("keyboard %04X \n" , e.type );
   
- // if( e.type == SDL_QUIT) exit(0);
-  
+  if( e.type == SDL_QUIT) exit(0);
   if( e.type == SDL_KEYDOWN ||  e.type == SDL_KEYUP)
-  {
-    //J=XLookupKeysym((XKeyEvent *)&E,0);
+  	{
     J= e.key.keysym.sym;
-   // printf("%02X \n",J);
+    printf("%02X\n",J);
     /* for stick,strig */
-    {
+   	 {
       byte tmp;
- /*     switch(J) {
-        case XK_space  : tmp = STICK0_SPACE; break;
-	case XK_Left   : tmp = STICK0_LEFT; break;
-	case XK_Right  : tmp = STICK0_RIGHT; break;
-	case XK_Down   : tmp = STICK0_DOWN; break;
-	case XK_Up     : tmp = STICK0_UP; break;
-	case XK_Pause  : tmp = STICK0_STOP; break;
-	case XK_Shift_L: 
-	case XK_Shift_R: tmp = STICK0_SHIFT; break;
-	default: tmp = 0;
-      }
-      if(E.type==KeyPress) stick0 |= tmp;
+      switch(J) {
+        	case SDLK_SPACE:  tmp = STICK0_SPACE; break;
+			case SDLK_LEFT:      tmp = STICK0_LEFT; break;
+			case SDLK_RIGHT:   tmp = STICK0_RIGHT; break;
+			case SDLK_DOWN:   tmp = STICK0_DOWN; break;
+			case SDLK_UP:         tmp = STICK0_UP; break;
+			case SDLK_PAUSE:  tmp = STICK0_STOP; break;
+			case SDLK_LSHIFT: 
+			case SDLK_RSHIFT: tmp = STICK0_SHIFT; break;
+			default: tmp = 0;
+      	}
+      if(e.type==SDL_KEYDOWN) stick0 |= tmp;
       else	           stick0 &= ~tmp;
-    } */
+    } 
     /* end of for stick,strig */
-    //if(E.type==KeyPress)
     if( e.type == SDL_KEYDOWN)
     {
-/*      switch(J)
+      switch(J)
       {
-        case XK_F10:
+        case SDLK_F10:
 #ifdef SOUND
 	  StopSound(); 
 #endif
-	  run_conf();
+	  //run_conf();
 	  ClearScr();
 #ifdef SOUND
 	  ResumeSound();
 #endif
 	  break;
 #ifdef DEBUG
-        case XK_F11: Trace=!Trace;break;
+        case SDLK_F11: Trace=!Trace;break;
 #endif
-        case XK_F12: CPURunning=0;break;
+        case SDLK_F12: CPURunning=0;break;
 
-        case XK_Control_L: kbFlagCtrl=1;break;
-        case XK_Alt_L: kbFlagGraph=1;break;
+        case SDLK_LCTRL: kbFlagCtrl=1;break;
+        case SDLK_LALT: kbFlagGraph=1;break;
 
-        case XK_Insert: J=XK_F13;break; // Ins -> F13 
+        //case XK_Insert: J=XK_F13;break; // Ins -> F13 
       }
       if((P6Version==0)&&(J==0xFFC6)) J=0; // MODE key when 60 
-    */
+ 
       J&=0xFF;
       if (kbFlagGraph)
 	Keys = Keys7[J];
@@ -437,13 +426,13 @@ void Keyboard(void)
       keyGFlag = Keys[0]; p6key = Keys[1];
 
       /* control key + alphabet key */
-    //  if ((kbFlagCtrl == 1) && (J >= XK_a) && (J <= XK_z))
-//	{keyGFlag = 0; p6key = J - XK_a + 1;}
+      if ((kbFlagCtrl == 1) && (J >= SDLK_a) && (J <= SDLK_z))
+	{keyGFlag = 0; p6key = J - SDLK_a + 1;}
       /*if (p6key != 0x00) IFlag = 1;*/
       if (Keys[1] != 0x00) KeyIntFlag = INTFLAG_REQ;
     } else {
-  //    if (J==XK_Alt_L) kbFlagGraph=0;
-  //    if (J==XK_Control_L) kbFlagCtrl=0;
+      if (J==SDLK_LALT || J==SDLK_RALT) kbFlagGraph=0;
+      if (J==SDLK_RCTRL || J==SDLK_LCTRL) kbFlagCtrl=0;
     }
   }
 
@@ -465,8 +454,6 @@ void Keyboard(void)
     ResumeSound();        // Switch the sound back on
 #endif
 */
-  }
-#endif
 }
 
 

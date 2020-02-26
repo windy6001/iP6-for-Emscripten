@@ -30,7 +30,7 @@ int main(int argc,char *argv[])
 {
   int N,J;
   TrapBadOps=0;
-  Verbose=1;P6Version=1;PatchLevel=1;
+  Verbose=1;P6Version=0;PatchLevel=1;
 
 #ifdef MITSHM
   UseSHM=1;

@@ -560,10 +560,7 @@ int WaitFlag = 1;
 extern int portF7;
 void unixIdle();
 
-  static int HCount = 0;
-  int	NowClock;
-  long StartCount;
-  int hline;
+
 
 /*** Interpret Z80 code: **********************************/
 /*** Registers have initial values from Regs. PC value  ***/
@@ -578,19 +575,17 @@ void Z80(void)
  int cnt =0;
   register byte I, j;
   register pair J;
-/*
+
   static int HCount = 0;
-  int	NowClock;
-  long StartCount;
-  int hline;
-*/
+  static int	NowClock;
+  static long StartCount;
+  static int hline;
+
   CPURunning=1;
 #ifndef __EMSCRIPTEN__
   for(;;)
 #endif
-  {   
-    //  SDL_Log("ClockCount %d Valid_Line %d\n",ClockCount , Valid_Line); 
-   
+  {      
     // 一画面分の水平走査線 - Z80がBUSREQで停止している走査線数 = Z80稼動走査線数
     ClockCount += z80_clock/(60*262);	// 1水平ライン分のクロック数
     for (hline = 0; hline < Valid_Line; /*hline++*/) {

@@ -75,7 +75,7 @@ byte PSG[16];
 byte JoyState[2];
 byte CSS1,CSS2,CSS3;
 
-byte UPeriod     = 2;               /* Interrupts/scr. update */
+byte UPeriod     = 1;               /* Interrupts/scr. update */
 byte EndOfFrame=1;                  /* 1 when end of frame    */
 
 byte p6key = 0;
