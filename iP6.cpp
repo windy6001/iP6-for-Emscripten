@@ -10,9 +10,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+
 #include "P6.h"
+#include "mmu.h"
 #include "Help.h"
-#include "Xconf.h"
+//#include "Xconf.h"
 
 char *Options[]=
 { 
@@ -26,11 +28,14 @@ extern int   UseSound;
 extern int   scale;
 extern int   IntLac;
 
+
 int main(int argc,char *argv[])
 {
+//   QApplication app(argc, argv);
+
   int N,J;
   TrapBadOps=0;
-  Verbose=1;P6Version=0;PatchLevel=1;
+  Verbose=1;P6Version=1;PatchLevel=1;
 
 #ifdef MITSHM
   UseSHM=1;
@@ -89,7 +94,21 @@ int main(int argc,char *argv[])
     }
 
   if(!InitMachine()) return(1);
-  StartP6();TrashP6();
+  if( InitP6()) {
+  
+#ifdef __EMSCRIPTEN__
+    printf("set main loop \n");
+    emscripten_set_main_loop(Z80, 60, 1);
+#else
+    Z80();
+    //if(Verbose) printf("EXITED at PC = %04Xh.\n",A);
+    if(Verbose) printf("EXITED \n");
+#endif
+  }
+
+  TrashP6();
   TrashMachine();
   return(0);
 }
+
+

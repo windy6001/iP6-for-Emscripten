@@ -13,8 +13,9 @@
 /*************************************************************/
 #ifdef DEBUG
 
-#define GLOBAL
+//#define GLOBAL
 #include "Z80.h"
+#include "crtc.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -308,7 +309,7 @@ static int DAsm(char *S,word A)
 /*************************************************************/
 byte Debug(reg *R)
 {
-  static char Flags[8] = "SZ.H.PNC";
+  static char Flags[] = "SZ.H.PNC";
   char S[128],T[10];
   byte J,I;
 

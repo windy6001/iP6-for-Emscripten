@@ -1,3 +1,4 @@
+#if 1
 //             SDL2
 //
 //  modified by Windy
@@ -98,8 +99,8 @@ int Width,Height; /* this is ximage size. window size is +20 */
 /** Various variables and short functions ********************/
 
 byte *Keys;
-byte Keys1[256][2],Keys2[256][2],Keys3[256][2],Keys4[256][2],
-  Keys5[256][2],Keys6[256][2],Keys7[256][2];
+//byte Keys1[256][2],Keys2[256][2],Keys3[256][2],Keys4[256][2],
+//  Keys5[256][2],Keys6[256][2],Keys7[256][2];
 int scr4col = 0;
 static long psec=0, pusec=0;
 
@@ -137,18 +138,13 @@ void unixIdle(void)
 #endif
 }
 
-/** Screen Mode Handlers [N60/N66][SCREEN MODE] **************/
-void (*SCR[2][4])() = 
-{
-  { RefreshScr10, RefreshScr10, RefreshScr10, RefreshScr10 },
-  { RefreshScr51, RefreshScr51, RefreshScr53, RefreshScr54 },
-};
 
 /** Keyboard bindings ****************************************/
 #include "Keydef.h"
 
 void TrashMachine(void)
 {
+	SDL_Quit();
 }
 
 /** InitMachine **********************************************/
@@ -195,7 +191,7 @@ int InitMachine(void)
 
 
     sdlWindow = SDL_CreateWindow(
-        "iP6 ",                  // ウィンドウのタイトル
+        "iP6     (F12:QUIT)",                  // ウィンドウのタイトル
         SDL_WINDOWPOS_UNDEFINED,           // X座標の初期値
         SDL_WINDOWPOS_UNDEFINED,           // Y座標の初期値
         Width,                               // 幅のピクセル数
@@ -215,7 +211,7 @@ int InitMachine(void)
         exit(1);
     }
 
-    XBuf = surface->pixels;		// pixelのアドレスをセット	(VMの描画プログラムで使用)
+    XBuf = (byte*)surface->pixels;		// pixelのアドレスをセット	(VMの描画プログラムで使用)
     
     printf("Ok\n    SDL_CreateRenderer ...");
     sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_SOFTWARE);	// レンダラー生成
@@ -241,103 +237,6 @@ int InitMachine(void)
     SDL_UnlockSurface( surface);
     
   if(Verbose & 1) printf("OK\n");
-
-
-#if 0
-  Dsp=XOpenDisplay(Dispname);
-
-  if(!Dsp) { if(Verbose) printf("FAILED\n");return(0); }
-  if (do_sync) XSynchronize(Dsp, True);
-
-  if (!ChooseVisual()) 
-      return 0;
-  screen_num=VisInfo.screen;  depth=VisInfo.depth;
-  root=RootWindow(Dsp, screen_num);
-
-  if (!ChooseFormat()) 
-      return 0;
-
-  white=XWhitePixel(Dsp,screen_num);
-  black=XBlackPixel(Dsp,screen_num);
-  DefaultGC=DefaultGC(Dsp,screen_num);
-  if ( do_install 
-       ||(VisInfo.visualid != DefaultVisual(Dsp,screen_num)->visualid)) {
-      CMap=XCreateColormap(Dsp, root, VisInfo.visual, AllocNone);
-      CMapIsMine=1;
-  } 
-  else CMap=DefaultColormap(Dsp,screen_num);
-
-  if (Verbose & 1) 
-      printf("  Using %s colormap (0x%lx)\n", 
-	     CMapIsMine?"private":"default", CMap);
-
-  {
-    XSetWindowAttributes wat;
-    
-    if(Verbose & 1) printf("  Opening window...");
-    
-    wat.colormap=CMap;
-    wat.event_mask=MyEventMask;
-    wat.background_pixel=0;
-/*    wat.background_pixmap=None; */
-    wat.border_pixel=0;
-/*    wat.border_pixmap=None; */
-
-    Wnd=XCreateWindow(Dsp,root,0,0,Width+20,Height+20,0,depth,InputOutput,
-		      VisInfo.visual, 
-		      CWColormap|CWEventMask|CWBackPixel|CWBorderPixel, &wat);
-  }
-  strcpy(TitleBuf, Title); /* added */
-  SetWMHints();
-  if(!Wnd) { if(Verbose & 1) printf("FAILED\n");return(0); }
-  if(Verbose & 1) printf("OK\n");
-
-  InitColor(screen_num); 
-
-  XMapRaised(Dsp,Wnd);
-  XClearWindow(Dsp,Wnd);
-
-#ifdef MITSHM
-  if(UseSHM) /* check whether Dsp supports MITSHM */
-    UseSHM=XQueryExtension(Dsp,"MIT-SHM",&ShmOpcode,&K,&L);
-  if(UseSHM)
-  { if(!(UseSHM=TrySHM(depth, screen_num))) /* Dsp might still be remote */ 
-    {
-      if(SHMInfo.shmaddr) shmdt(SHMInfo.shmaddr);
-      if(SHMInfo.shmid>=0) shmctl(SHMInfo.shmid,IPC_RMID,0);
-      if(ximage) XDestroyImage(ximage);
-      if(Verbose & 1) printf("FAILED\n");
-    }
-  } 
-  if (!UseSHM)
-#endif
-
-
-
-    long size;    
-    size=(long)sizeof(byte)*Height*Width*bitpix/8;
-    if(Verbose & 1) printf("  Allocating %ld %s RAM for image...",
-			   (size&0x03ff) ? size : size>>10,
-			   (size&0x03ff) ? "bytes" : "kB");
-    XBuf=(byte *)malloc(size);
-    if(!XBuf) { if(Verbose & 1) printf("FAILED\n");return(0); }
-
-    if(Verbose & 1) printf("OK\n  Creating image...");
-    ximage=XCreateImage(Dsp,VisInfo.visual,depth,
-                        ZPixmap,0,XBuf,Width,Height,8,0);
-    if(!ximage) { if(Verbose & 1) printf("FAILED\n");return(0); }
-
-  if(Verbose & 1) printf("OK\n");
-
-  build_conf();
-#endif
-  {
-#if 0
-    struct timeval tv;
-    gettimeofday(&tv,NULL);
-    psec=tv.tv_sec;pusec=tv.tv_usec;
-#endif
-  }
   return(1);
 }
 
@@ -353,88 +252,120 @@ int InitMachine(void)
 void Keyboard(void)
 {
   SDL_Event e;
-   int J;
+   
+  //printf("keyboard ");
+  	
+#if 1
+  int J;
 
 #ifdef SOUND
-  FlushSound();  /* Flush sound stream on each interrupt */
+  //FlushSound();  /* Flush sound stream on each interrupt */
 #endif
+//  if(XCheckWindowEvent(Dsp,Wnd,KeyPressMask|KeyReleaseMask,&E))
+   //printf("keyup %c ", e.key.keysym.sym);
+
   int ret= SDL_PollEvent( &e);
   if( ret==0) return;
+  //printf("keyboard %04X \n" , e.type );
   
-  if( e.type == SDL_QUIT) exit(0);
-  if( e.type == SDL_KEYDOWN ||  e.type == SDL_KEYUP)
-  	{
-    J= e.key.keysym.sym;
-    printf("%02X\n",J);
-    /* for stick,strig */
-   	 {
-      byte tmp;
-      switch(J) {
-        	case SDLK_SPACE:  tmp = STICK0_SPACE; break;
-			case SDLK_LEFT:      tmp = STICK0_LEFT; break;
-			case SDLK_RIGHT:   tmp = STICK0_RIGHT; break;
-			case SDLK_DOWN:   tmp = STICK0_DOWN; break;
-			case SDLK_UP:         tmp = STICK0_UP; break;
-			case SDLK_PAUSE:  tmp = STICK0_STOP; break;
-			case SDLK_LSHIFT: 
-			case SDLK_RSHIFT: tmp = STICK0_SHIFT; break;
+ // if( e.type == SDL_QUIT) exit(0);
+  	J= e.key.keysym.sym;
+	if( e.type == SDL_KEYDOWN ||  e.type == SDL_KEYUP) {
+		//printf("sdl key %06X\n",J);
+		byte tmp;
+		switch(J) {
+			case SDLK_SPACE  : tmp = STICK0_SPACE; break;
+			case SDLK_LEFT   : tmp = STICK0_LEFT; break;
+			case SDLK_RIGHT  : tmp = STICK0_RIGHT; break;
+			case SDLK_DOWN   : tmp = STICK0_DOWN; break;
+			case SDLK_UP     : tmp = STICK0_UP; break;
+			case SDLK_PAUSE  : tmp = STICK0_STOP; break;
+			case SDLK_LSHIFT : 
+			case SDLK_RSHIFT : tmp = STICK0_SHIFT; break;
 			default: tmp = 0;
-      	}
-      if(e.type==SDL_KEYDOWN) stick0 |= tmp;
-      else	           stick0 &= ~tmp;
-    } 
-    /* end of for stick,strig */
-    if( e.type == SDL_KEYDOWN)
-    {
-      switch(J)
-      {
-        case SDLK_F10:
+		}
+		if(e.type== SDL_KEYDOWN)
+			stick0 |= tmp;
+		else
+			stick0 &= ~tmp;
+
+		//J=XLookupKeysym((XKeyEvent *)&E,0);
+
+		// printf("%02X \n",J);
+		/* for stick,strig */
+		{
+		byte tmp;
+		if( e.type == SDL_KEYDOWN){
+		switch(J)
+			{
+			/*case XK_F10:
 #ifdef SOUND
-	  StopSound(); 
+			StopSound(); 
 #endif
-	  //run_conf();
-	  ClearScr();
+			run_conf();
+			ClearScr(); */
 #ifdef SOUND
-	  ResumeSound();
+		ResumeSound();
 #endif
-	  break;
+				break;
+			case SDLK_UP:   J= 0x111; break;
+			case SDLK_DOWN: J= 0x112; break;
+			case SDLK_RIGHT:J= 0x113; break;
+			case SDLK_LEFT: J= 0x114; break;
+			case SDLK_PAGEUP:J= 0x118; break;
+			case SDLK_F1:   J= 0x11a; break;
+			case SDLK_F2:   J= 0x11b; break;
+			case SDLK_F3:   J= 0x11c; break;
+			case SDLK_F4:   J= 0x11d; break;
+			case SDLK_F5:   J= 0x11e; break;
+			
 #ifdef DEBUG
-        case SDLK_F11: Trace=!Trace;break;
+			case SDLK_F11: Trace=!Trace;break;
 #endif
-        case SDLK_F12: CPURunning=0;break;
+			case SDLK_F12: CPURunning=0;break;
 
-        case SDLK_LCTRL: kbFlagCtrl=1;break;
-        case SDLK_LALT: kbFlagGraph=1;break;
+			case SDLK_LCTRL:
+			case SDLK_RCTRL:kbFlagCtrl=1;break;
+			case SDLK_LALT: 
+			case SDLK_RALT: kbFlagGraph=1;break;
 
-        //case XK_Insert: J=XK_F13;break; // Ins -> F13 
-      }
-      if((P6Version==0)&&(J==0xFFC6)) J=0; // MODE key when 60 
- 
-      J&=0xFF;
-      if (kbFlagGraph)
-	Keys = Keys7[J];
-      else if (kanaMode)
-	if (katakana)
-	  if (stick0 & STICK0_SHIFT) Keys = Keys6[J];
-	  else Keys = Keys5[J];
-	else
-	  if (stick0 & STICK0_SHIFT) Keys = Keys4[J];
-	  else Keys = Keys3[J];
-      else
-	if (stick0 & STICK0_SHIFT) Keys = Keys2[J];
-	else Keys = Keys1[J];
-      keyGFlag = Keys[0]; p6key = Keys[1];
+			//case XK_Insert: J=XK_F13;break; // Ins -> F13 
+			}
+			if((P6Version==0)&&(J==0xFFC6)) J=0; // MODE key when 60 
+		
+		//J&=0xFF;
+		if( J>0x140) J= 0x13f;
+		if (kbFlagGraph)
+			Keys = Keys7[J];
+		else if (kanaMode)
+			if (katakana)
+				if (stick0 & STICK0_SHIFT) 
+					Keys = Keys6[J];
+				else 
+					Keys = Keys5[J];
+			else
+				if (stick0 & STICK0_SHIFT) 
+					Keys = Keys4[J];
+				else 
+					Keys = Keys3[J];
+		else
+			if (stick0 & STICK0_SHIFT) 
+				Keys = Keys2[J];
+			else 
+				Keys = Keys1[J];
+		keyGFlag = Keys[0]; p6key = Keys[1];
 
-      /* control key + alphabet key */
-      if ((kbFlagCtrl == 1) && (J >= SDLK_a) && (J <= SDLK_z))
-	{keyGFlag = 0; p6key = J - SDLK_a + 1;}
-      /*if (p6key != 0x00) IFlag = 1;*/
-      if (Keys[1] != 0x00) KeyIntFlag = INTFLAG_REQ;
-    } else {
-      if (J==SDLK_LALT || J==SDLK_RALT) kbFlagGraph=0;
-      if (J==SDLK_RCTRL || J==SDLK_LCTRL) kbFlagCtrl=0;
-    }
-  }
+			/* control key + alphabet key */
+		if ((kbFlagCtrl == 1) && (J >= SDLK_a) && (J <= SDLK_z))
+			{keyGFlag = 0; p6key = J - SDLK_a + 1;}
+			/*if (p6key != 0x00) IFlag = 1;*/
+		if (Keys[1] != 0x00) 
+			KeyIntFlag = INTFLAG_REQ;
+		} else {
+		if (J==SDLK_LALT || J==SDLK_RALT) kbFlagGraph=0;
+		if (J==SDLK_LCTRL || J==SDLK_RCTRL) kbFlagCtrl=0;
+		}
+	}
 
 /*  for(J=0;XCheckWindowEvent(Dsp,Wnd,FocusChangeMask,&E);)
     J=(E.type==FocusOut); 
@@ -454,6 +385,8 @@ void Keyboard(void)
     ResumeSound();        // Switch the sound back on
 #endif
 */
+  }
+#endif
 }
 
 
@@ -548,4 +481,4 @@ void PutImage(void)
     SDL_RenderCopy( sdlRenderer, sdlTexture, NULL, NULL);
     SDL_RenderPresent( sdlRenderer ); 
 }
-
+#endif

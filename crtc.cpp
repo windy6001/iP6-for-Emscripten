@@ -1,3 +1,94 @@
+#include "mmu.h"
+#include "sub.h"
+#include "crtc.h"
+
+byte CRTMode1,CRTMode2,CRTMode3;
+byte CSS1,CSS2,CSS3;
+
+byte UPeriod     = 2;               /* Interrupts/scr. update */
+byte EndOfFrame=1;                  /* 1 when end of frame    */
+
+byte TimerSW = 0;
+byte TimerSW_F3 = 1;				/* 初期値は1とする（PC-6001対応） */
+
+
+void LockSurface(void);
+void UnlockSurface(void);
+
+/** Screen Mode Handlers [N60/N66][SCREEN MODE] **************/
+void (*SCR[2][4])() = 
+{
+  { RefreshScr10, RefreshScr10, RefreshScr10, RefreshScr10 },
+  { RefreshScr51, RefreshScr51, RefreshScr53, RefreshScr54 },
+};
+
+
+byte *VRAM;
+static unsigned int VRAMHead[2][4] = {
+  { 0xc000, 0xe000, 0x8000, 0xa000 },
+  { 0x8000, 0xc000, 0x0000, 0x4000 },
+};
+
+
+void DoOutB0(byte Port ,byte Value)
+{
+    switch(Port) {
+		case 0xB0:
+            VRAM=GetRAM()+VRAMHead[CRTMode1][(Value&0x06)>>1];
+            TimerSW=(Value&0x01)?0:1;
+            return;
+    }
+}
+
+
+void DoOutC0(byte Port ,byte Value)
+{
+    switch(Port) {
+		case 0xC0:                           /* CSS                  */
+            CSS3=(Value&0x04)<<2;CSS2=(Value&0x02)<<2;CSS1=(Value&0x01)<<2;
+            return;
+    }
+}
+
+void DoOutC1(byte Port ,byte Value)
+{
+    switch(Port) {
+		case 0xC1:                           /* CRT controller mode  */
+        //    if((CRTMode1)&&(Value&0x02)) {ClearScr();}
+            CRTMode1=(Value&0x02) ? 0 : 1;
+            CRTMode2=(Value&0x04) ? 0 : 1;
+            CRTMode3=(Value&0x08) ? 0 : 1;
+            SetCGROM ((CRTMode1 == 0) ? GetCGROM1() : GetCGROM5());
+            return;
+    }
+}
+
+
+/* $B2hLL$N99?7=hM}(B */
+/* Z80.c$B$+$i8F$P$l$k(B */
+void UpdateScreen(void)
+{
+	static int count = 0;
+	static int UCount=1;
+	
+	if( count++ == 60) {
+		int pos;
+		count =0;
+		pos = GetCasPos();
+		if( pos !=-1) {
+		//	SetTitle( pos);
+		}
+	}
+	if((!--UCount)||!EndOfFrame) {
+		UCount=UPeriod;
+		/* Refreshing screen: */
+		LockSurface();              // SDL lock surface
+		SCR[CRTMode1][CRTMode2 ? (CRTMode3 ? 3 : 2) : 0]();
+		UnlockSurface();        // SDL Unlock surface
+	}
+}
+
+
 /** iP6: PC-6000/6600 series emualtor ************************/
 /**                                                         **/
 /**                         Refresh.c                       **/
@@ -269,7 +360,7 @@ int IntLac = 0;
 /*************************************************************/
 
 /** RefreshScr10: N60-BASIC select function ******************/
-void RefreshScr10()
+void RefreshScr10(void)
 {
   if ((*VRAM&0x80) == 0x00)
     RefreshScr11();
@@ -291,7 +382,7 @@ void RefreshScr10()
 }
 
 /** RefreshScr11: N60-BASIC screen 1,2 ***********************/
-void RefreshScr11()
+void RefreshScr11(void)
 {
   register byte X,Y,K;
   register ColTyp FC,BC;
@@ -330,7 +421,7 @@ void RefreshScr11()
 }
 
 /** RefreshScr13: N60-BASIC screen 3,4 ***********************/
-void RefreshScr13()
+void RefreshScr13(void)
 {
   register byte X,Y;
   register byte *T1,*T2;
@@ -374,7 +465,7 @@ void RefreshScr13()
 }
 
 /** RefreshScr13a: N60-BASIC screen 3,4 **********************/
-void RefreshScr13a() /*  64x 64 color / 128x 64 */
+void RefreshScr13a(void) /*  64x 64 color / 128x 64 */
 {
   register byte X,Y;
   register byte *T1,*T2;
@@ -428,7 +519,7 @@ void RefreshScr13a() /*  64x 64 color / 128x 64 */
 }
 
 /** RefreshScr13b: N60-BASIC screen 3,4 **********************/
-void RefreshScr13b() /* 128x 64 color */
+void RefreshScr13b(void) /* 128x 64 color */
 {
   register byte X,Y;
   register byte *T1,*T2;
@@ -453,7 +544,7 @@ void RefreshScr13b() /* 128x 64 color */
 }
 
 /** RefreshScr13c: N60-BASIC screen 3,4 **********************/
-void RefreshScr13c() /* 128x 96 */
+void RefreshScr13c(void) /* 128x 96 */
 {
   register byte X,Y;
   register byte *T1,*T2;
@@ -495,7 +586,7 @@ void RefreshScr13c() /* 128x 96 */
 }
 
 /** RefreshScr13d: N60-BASIC screen 3,4 **********************/
-void RefreshScr13d() /* 128x 96 color */
+void RefreshScr13d(void) /* 128x 96 color */
 {
   register byte X,Y;
   register byte *T1,*T2;
@@ -520,7 +611,7 @@ void RefreshScr13d() /* 128x 96 color */
 }
 
 /** RefreshScr13e: N60-BASIC screen 3,4 **********************/
-void RefreshScr13e() /* 128x192 */
+void RefreshScr13e(void) /* 128x192 */
 {
   register byte X,Y;
   register byte *T1,*T2;
@@ -561,7 +652,7 @@ void RefreshScr13e() /* 128x192 */
 }
 
 /** RefreshScr51: N60m/66-BASIC screen 1,2 *******************/
-void RefreshScr51()
+void RefreshScr51(void)
 {
   register byte X,Y,K;
   register ColTyp FC,BC;
@@ -590,7 +681,7 @@ void RefreshScr51()
 }
 
 /** RefreshScr53: N60m/66-BASIC screen 3 *********************/
-void RefreshScr53()
+void RefreshScr53(void)
 {
   register byte X,Y;
   register byte *T1,*T2;
@@ -612,7 +703,7 @@ void RefreshScr53()
 }
 
 /** RefreshScr54: N60m/66-BASIC screen 4 *********************/
-void RefreshScr54()
+void RefreshScr54(void)
 {
   register byte X,Y;
   register byte *T1,*T2;

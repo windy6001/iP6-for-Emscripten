@@ -34,30 +34,37 @@
 # change the -L/usr/X11R6/lib to the directory where X11
 # libraries libX11.* and libXext.* are located on your system.
 
+TARGET=SDL
 
-# CC      = gcc
+ifeq ($(TARGET),SDL)
+CC = g++
+else
 CC = emcc
+endif
 
 # --- DEFINES ---
-DEFINES = -DUNIX -DLSB_FIRST 
+DEFINES = -DUNIX -DLSB_FIRST -DDEBUG
+# XAW_CFLAGS  = -I/usr/X11/include
 
 # --- CFLAGS ---
-ifeq ($(CC),gcc)
+ifeq ($(TARGET),SDL)
 # --- SDL -------
-CFLAGS = -g -O3 -fomit-frame-pointer -funroll-loops 	`sdl2-config --cflags` ${DEFINES}
+CFLAGS = -g -O3 -fomit-frame-pointer -funroll-loops 	`sdl2-config --cflags` ${DEFINES} ${XAW_CFLAGS}
 else
 # --- emscripten ---
 CFLAGS = -s USE_SDL=2 --preload-file rom ${DEFINES}
 endif
 
+CXXFLAGS = ${CFLAGS}
 
 # --- LDLIBS ---
 # --- SDL ------
 LDLIBS  = 	`sdl2-config --libs`
 
-OBJECTS = iP6.o P6.o Z80.o Debug.o Unix.o Refresh.o Sound.o Xconf.o sdl.o
+OBJECTS = iP6.o P6.o Z80.o Debug.o Unix.o Refresh.o Sound.o sdl.o mmu.o \
+		crtc.o sub.o audio.o 
 
-ifeq ($(CC),gcc)
+ifeq ($(TARGET),SDL)
 OUTPUTFILE= iP6
 else
 OUTPUTFILE= iP6.html
@@ -75,12 +82,16 @@ clean:
 	rm -f *.o *~ iP6 iP6.html iP6.data iP6.js iP6.wasm
 
 # Dependencies for the object files.
-iP6.o:		iP6.c P6.h Z80.h Help.h
-P6.o:		P6.c P6.h Z80.h
+iP6.o:		iP6.cpp P6.h Z80.h Help.h
+P6.o:		P6.cpp P6.h Z80.h
 Z80.o:		Z80.c Z80.h Codes.h CodesED.h CodesCB.h CodesXX.h Tables.h CodesXCB.h
 Unix.o:		Unix.c P6.h Z80.h Keydef.h
-Refresh.o:	Refresh.c Unix.h
+Refresh.o:	Refresh.cpp Unix.h
 Sound.o:	Sound.c P6.h
-Debug.o:	Debug.c Z80.h
-Xconf.o:	Xconf.c Xconf.h Xconfdef.h P6.h
-sdl.o:	sdl.c
+Debug.o:	Debug.cpp Z80.h
+#Xconf.o:	Xconf.c Xconf.h Xconfdef.h P6.h
+sdl.o:	sdl.cpp Keydef.h
+mmu.o:	mmu.cpp mmu.h
+sub.o:	sub.cpp sub.h
+crtc.o: crtc.cpp crtc.h
+

@@ -19,8 +19,9 @@
 #include "P6.h"
 #include "Tables.h"
 #include "cycles.h"
+#include "sub.h"
 
-#include <SDL.h>
+//#include <SDL.h>
 
 /*** Registers ***********************************************/
 /*** Z80 registers and running flag.                       ***/
@@ -35,10 +36,10 @@ static long TimerInt_Clock = 0;
 static long BaseTimerClock = 0;
 static long CmtInt_Clock = 0;
 
-static int TintClockRemain;		// $B%?%$%^3d$j9~$_4F;k(B
-static int CmtClockRemain;		// CMT$B3d$j9~$_4F;k(B
+static int TintClockRemain;		// タイマ割り込み監視
+static int CmtClockRemain;		// CMT割り込み監視
 static int Valid_Line = 0;
-static long TClock = 0;			// 1$BIC4V$K<B9T$7$?%/%m%C%/?t(B
+static long TClock = 0;			// 1秒間に実行したクロック数
 
 int TimerIntFlag = INTFLAG_NONE;
 int CmtIntFlag = INTFLAG_NONE;
@@ -46,6 +47,7 @@ int StrigIntFlag = INTFLAG_NONE;
 int KeyIntFlag = INTFLAG_NONE;
 
 word save_intr=0xffff;
+int IntSW_F3 = 1;
 
 /*** Interrupts **********************************************/
 /*** Interrupt-related variables.                          ***/
@@ -502,18 +504,18 @@ void ResetZ80(void)
   CPURunning=1;
   TClock = 0;
 
-  TintClockRemain = TimerInt_Clock;		// $B%?%$%^3d$j9~$_4F;k(B
-  CmtClockRemain = CmtInt_Clock;			// CMT$B3d$j9~$_4F;k(B
+  TintClockRemain = TimerInt_Clock;		// タイマ割り込み監視
+  CmtClockRemain = CmtInt_Clock;			// CMT割り込み監視
 }
 
-//$B%/%m%C%/<~GH?t$rF@$k(B
+//クロック周波数を得る
 long GetClock(void)
 {
   return z80_clock;
 }
 
 //
-// Z80$B$,F0:n$9$k;v$,$G$-$k?eJ?%i%$%s?t(B
+// Z80が動作する事ができる水平ライン数
 //
 void SetValidLine(long Line)
 {
@@ -521,32 +523,32 @@ void SetValidLine(long Line)
 }
 
 //
-// $B%/%m%C%/<~GH?t$r@_Dj(B
-// $B9g$o$;$F%?%$%^!&(BCMT$B3d$j9~$_<~4|$b;;=P$9$k(B
+// クロック周波数を設定
+// 合わせてタイマ・CMT割り込み周期も算出する
 //
 void SetClock(long clock)
 {
   z80_clock = clock;
 
-  // 4MHz$B$N>l9g!"(B2083$B$K6a$$CM$K$J$k(B?
+  // 4MHzの場合、2083に近い値になる?
   BaseTimerClock = (long)( ((float)(clock/(60*262)) * (float)(Valid_Line)) / 8.533332992f);
   TimerInt_Clock = BaseTimerClock;
 
 //	CmtInt_Clock = ((clock/(60*262)) * Valid_Line) / 2;
-//	CmtInt_Clock = CmtInt_Clock * 2;		// $B"+(B $B;CDjE*=hM}!*(B
+//	CmtInt_Clock = CmtInt_Clock * 2;		// ← 暫定的処理！
 
-  // $B>o$K8GDj(B
+  // 常に固定
   CmtInt_Clock = 33333;
 }
 
-// $B%?%$%^!<3d$j9~$_$N%+%&%s%H(B
-// $B?dB,(B:$B=i4|CM$O(B3$B$G!"$3$N;~(B2msec$B!#$?$V$s!"(B4count = 2msec$B!#(B
+// タイマー割り込みのカウント
+// 推測:初期値は3で、この時2msec。たぶん、4count = 2msec。
 void SetTimerIntClock(long pow)
 {
   TimerInt_Clock = BaseTimerClock * ((pow + 1) / 4);
 }
 
-// $B$3$l$^$G$K<B9T$7$?%^%7%s%+%&%s%H$r<hF@$9$k(B
+// これまでに実行したマシンカウントを取得する
 long GetTClock(void)
 {
   long retValue = TClock;
@@ -560,166 +562,203 @@ int WaitFlag = 1;
 extern int portF7;
 void unixIdle();
 
-
+  static int HCount = 0;
+  int	NowClock;
+  long StartCount;
+  int hline;
 
 /*** Interpret Z80 code: **********************************/
 /*** Registers have initial values from Regs. PC value  ***/
 /*** at which emulation stopped is returned by this     ***/
 /*** function.                                          ***/
 /**********************************************************/
-//word Z80(void)
-void Z80(void)
+word Z80(void)
 {
  // printf("Z80() proc.. \n");
 
  int cnt =0;
   register byte I, j;
   register pair J;
-
+/*
   static int HCount = 0;
-  static int	NowClock;
-  static long StartCount;
-  static int hline;
-
+  int	NowClock;
+  long StartCount;
+  int hline;
+*/
   CPURunning=1;
 #ifndef __EMSCRIPTEN__
   for(;;)
 #endif
-  {      
-    // $B0l2hLLJ,$N?eJ?Av::@~(B - Z80$B$,(BBUSREQ$B$GDd;_$7$F$$$kAv::@~?t(B = Z80$B2TF0Av::@~?t(B
-    ClockCount += z80_clock/(60*262);	// 1$B?eJ?%i%$%sJ,$N%/%m%C%/?t(B
+  {   
+    //  SDL_Log("ClockCount %d Valid_Line %d\n",ClockCount , Valid_Line); 
+    // 一画面分の水平走査線 - Z80がBUSREQで停止している走査線数 = Z80稼動走査線数
+    ClockCount += z80_clock/(60*262);	// 1水平ライン分のクロック数
     for (hline = 0; hline < Valid_Line; /*hline++*/) {
-
-      // 1$B?eJ?%i%$%sJ,$N=hM}$r3+;O$9$k(B
-      while(ClockCount > 0) {
+		// 1水平ライン分の処理を開始する
+			while(ClockCount > 0) {
 #ifdef DEBUG
-		/* Turn tracing on when reached trap address */
-		if(R.PC.W==Trap) Trace=1;
-		/* Call single-step debugger, exit if requested */
-		if(Trace) if(!Debug(&R)) return(R.PC.W);
+				/* Turn tracing on when reached trap address */
+				if(R.PC.W==Trap) Trace=1;
+				/* Call single-step debugger, exit if requested */
+				if(Trace) if(!Debug(&R)) return(R.PC.W);
 #endif
-
-		StartCount = ClockCount;
-
-		switch((j=M_RDMEM(R.PC.W++)))
-	  		{
-#include "Codes.h"
-	  		case PFX_CB: CodesCB();break;
-	  		case PFX_ED: CodesED();break;
-	  		case PFX_FD: CodesFD();break;
-	  		case PFX_DD: CodesDD();break;
-	  		case HALT: 
-	    				ClockCount=0;
+				StartCount = ClockCount;
+				switch((j=M_RDMEM(R.PC.W++)))
+					{
+					#include "Codes.h"
+					case PFX_CB: CodesCB();break;
+					case PFX_ED: CodesED();break;
+					case PFX_FD: CodesFD();break;
+					case PFX_DD: CodesDD();break;
+					case HALT: 
+								ClockCount=0;
 #ifdef INTERRUPTS
-				    if(R.IFF&0x01) { R.PC.W--;R.IFF|=0x80; }
+							if(R.IFF&0x01) { R.PC.W--;R.IFF|=0x80; }
 #else
-	    			   printf("CPU HALTed and stuck at PC=%hX\n",--R.PC.W);
-	    			   CPURunning=0;
+							printf("CPU HALTed and stuck at PC=%hX\n",--R.PC.W);
+							CPURunning=0;
 #endif   
-				    R.IFF|=0x80;
-	    			    break;
-	 		 default:
-	    			if(TrapBadOps)
-	      				printf
-					(
-		 			"Unrecognized instruction: %X at PC=%hX\n",
-		 			M_RDMEM(R.PC.W-1),R.PC.W-1
-		 			);
-	  		}
+							R.IFF|=0x80;
+								break;
+					default:
+							if(TrapBadOps)
+								printf
+							(
+							"Unrecognized instruction: %X at PC=%hX\n",
+							M_RDMEM(R.PC.W-1),R.PC.W-1
+							);
+					}
 
-		ClockCount-=cycles_main[j]+1;
-		NowClock = StartCount - ClockCount;
-		/* $B<B9T$7$?%/%m%C%/?t$rJ]B8$9$k(B */
-		TClock += NowClock;
-		/* $B%?%$%^!<3d$j9~$_%/%m%C%/?t$N7W;;(B */
-		TintClockRemain-= NowClock;
-		/* CMT$B3d$j9~$_%/%m%C%/?t$N7W;;(B */
-		CmtClockRemain-= NowClock;
+				ClockCount-=cycles_main[j]+1;
+				NowClock = StartCount - ClockCount;
+				/* 実行したクロック数を保存する */
+				TClock += NowClock;
+				/* タイマー割り込みクロック数の計算 */
+				TintClockRemain-= NowClock;
+				/* CMT割り込みクロック数の計算 */
+				CmtClockRemain-= NowClock;
 
-		/* $B%?%$%^!<3d$j9~$_$NH/@8!)(B */
-		if (TintClockRemain <= 0) {
-	  		/*TintClockRemain += TimerInt_Clock;*/
-	  		TintClockRemain = TimerInt_Clock;
-	  		if(TimerSW && TimerSWFlag & TimerSW_F3) {
-	    			IFlag=1;
-	    			TimerIntFlag = INTFLAG_REQ;
-	  		}
-		}
-	
-		/* CMT$B3d$j9~$_$NH/@85v2D!)(B */
-		if (CmtClockRemain <= 0) {
-	  		/* $B3d$j9~$_5v2D>uBV!)(B */
-	  		if (R.IFF&0x01) {
-	    			IFlag = 1;
-	    			CmtClockRemain = CmtInt_Clock;
-	    			enableCmtInt();
-	  		}
-		}
+				/* タイマー割り込みの発生？ */
+				if (TintClockRemain <= 0) {
+					/*TintClockRemain += TimerInt_Clock;*/
+					TintClockRemain = TimerInt_Clock;
+					if(TimerSW && TimerSWFlag & TimerSW_F3) {
+							IFlag=1;
+							TimerIntFlag = INTFLAG_REQ;
+					}
+				}
+			
+				/* CMT割り込みの発生許可？ */
+				if (CmtClockRemain <= 0) {
+					/* 割り込み許可状態？ */
+					if (R.IFF&0x01) {
+							IFlag = 1;
+							CmtClockRemain = CmtInt_Clock;
+							enableCmtInt();
+					}
+				}
 
-	    if ((TimerIntFlag == INTFLAG_REQ) ||
-	    	(CmtIntFlag == INTFLAG_REQ) ||
-	    	(KeyIntFlag == INTFLAG_REQ))
-	  		break;
-     	 } /* while(ClockCount > 0) { */
+				if ((TimerIntFlag == INTFLAG_REQ) ||
+					(CmtIntFlag == INTFLAG_REQ) ||
+					(KeyIntFlag == INTFLAG_REQ))
+					break;
+				} /* while(ClockCount > 0) { */
 
-      /* $B#12hLLJ,$NM-8z%9%-%c%s%i%$%s$K$+$+$k=hM};~4VJ,$r<B9T$7$?$i(B
-	 $B2hLL$N99?7=hM}(B */
-      /* 262$B$OI=<($9$k2hLL$N%9%-%c%s%i%$%s?t(B */
-      if (ClockCount <= 0) {
-		hline++;
-		ClockCount += z80_clock/(60*262);
-	  	// $B%-!<%\!<%I>uBV$r%A%'%C%/$9$k(B
-	       Keyboard();
-		if (++HCount == 262) {
-	  		HCount = 0;
-	  		// $B%-!<%\!<%I>uBV$r%A%'%C%/$9$k(B
-	       		/*Keyboard();*/
-	  		/* $B3d$j9~$_$rH/@8$5$;$k(B
-	     		$B!JB>$N3d$j9~$_=hM}$r5"@~4|4V$G8!=P$5$;$k$?$a!K(B */
-	  		IFlag=1;
-		}
-      	}
+			/* １画面分の有効スキャンラインにかかる処理時間分を実行したら
+			画面の更新処理 */
+			/* 262は表示する画面のスキャンライン数 */
+			if (ClockCount <= 0) {
+				hline++;
+				ClockCount += z80_clock/(60*262);
+				// キーボード状態をチェックする
+				Keyboard();
+				if (++HCount == 262) {
+					HCount = 0;
+					// キーボード状態をチェックする
+					/*Keyboard();*/
+					/* 割り込みを発生させる
+						（他の割り込み処理を帰線期間で検出させるため） */
+					IFlag=1;
+				}
+			}
 
-      if(IFlag)
-      {
-	//if(!CPURunning) return(R.PC.W); /*break;*/ /* add */
-	if(!CPURunning) return; /*break;*/ /* add */
-	IFlag=0;J.W=Interrupt();
-	
-	if(((J.W!=0xFFFF)&&(R.IFF&0x01))||(J.W==0x0066))
-	{
-	  /* which interrupt? */
-	  if (J.W == INTADDR_TIMER) TimerIntFlag = INTFLAG_NONE;
-	  else if (J.W == INTADDR_CMTREAD) CmtIntFlag = INTFLAG_EXEC;
-	  else if (J.W == INTADDR_STRIG) StrigIntFlag = INTFLAG_EXEC;
-	  else if ((J.W == INTADDR_KEY1) || (J.W == INTADDR_KEY2))
-	    KeyIntFlag = INTFLAG_EXEC;
+			if(IFlag)
+				{
+				if(!CPURunning) return(R.PC.W); /*break;*/ /* add */
+				//if(!CPURunning) return; /*break;*/ /* add */
+				IFlag=0;J.W=Interrupt();
+				
+				if(((J.W!=0xFFFF)&&(R.IFF&0x01))||(J.W==0x0066)){
+					/* which interrupt? */
+					if (J.W == INTADDR_TIMER) TimerIntFlag = INTFLAG_NONE;
+					else if (J.W == INTADDR_CMTREAD) CmtIntFlag = INTFLAG_EXEC;
+					else if (J.W == INTADDR_STRIG) StrigIntFlag = INTFLAG_EXEC;
+					else if ((J.W == INTADDR_KEY1) || (J.W == INTADDR_KEY2))
+					KeyIntFlag = INTFLAG_EXEC;
 
-	  /* Experimental V Shouldn't disable all interrupts? */
-	  R.IFF=(R.IFF&0xBE)|((R.IFF&0x01)<<6);
-	  if(R.IFF&0x80)  { R.PC.W++;R.IFF&=0x7F; }
-	  M_PUSH(PC);
+					/* Experimental V Shouldn't disable all interrupts? */
+					R.IFF=(R.IFF&0xBE)|((R.IFF&0x01)<<6);
+					if(R.IFF&0x80)  { R.PC.W++;R.IFF&=0x7F; }
+					M_PUSH(PC);
 
-	  if(J.W==0x0066) R.PC.W=0x0066; /* NMI */
-	  else
-	    if(R.IFF&0x04) /* IM 2 */
-	    { 
-	      J.W&=0xFE;J.B.h=R.I;
-	      R.PC.B.l=M_RDMEM(J.W++);
-	      R.PC.B.h=M_RDMEM(J.W);
-	    }
-	    else
-	      if(R.IFF&0x02) R.PC.W=0x0038; /* IM 1 */
-	      else R.PC.W=J.W; /* IM 0 */
-	}
-      }  
-    } /* for (hline = 0; hline < Valid_Line; hline++) */
-    /* $B2hLL$r99?7$9$k(B */
-    //printf("UpdateScreen \n");
-    UpdateScreen();
+					if(J.W==0x0066) R.PC.W=0x0066; /* NMI */
+					else
+					if(R.IFF&0x04) /* IM 2 */
+						{ 
+						J.W&=0xFE;J.B.h=R.I;
+						R.PC.B.l=M_RDMEM(J.W++);
+						R.PC.B.h=M_RDMEM(J.W);
+						}
+					else
+						if(R.IFF&0x02) 
+							R.PC.W=0x0038; /* IM 1 */
+						else 
+							R.PC.W=J.W; /* IM 0 */
+				}
+			}
+		} /* for (hline = 0; hline < Valid_Line; hline++) */
 
-    /* idle */
-    if (WaitFlag) unixIdle();
-  } /* for(;;) */
+		/* 画面を更新する */
+		//printf("UpdateScreen \n");
+		UpdateScreen();
+
+		/* idle */
+	if (WaitFlag) unixIdle();
+	} /* for(;;) */
 //  return(R.PC.W);
+}
+
+
+
+/****************************************************************/
+/*** Refresh screen, check keyboard and sprites. Call this    ***/
+/*** function on each interrupt.                              ***/
+/****************************************************************/
+word Interrupt(void)
+{
+  /* interrupt priority (PC-6601SR) */
+  /* 1.Timer     , 2.subCPU    , 3.Voice     , 4.VRTC      */
+  /* 5.RS-232C   , 6.Joy Stick , 7.EXT INT   , 8.Printer   */
+
+  if (TimerIntFlag == INTFLAG_REQ) return(INTADDR_TIMER); /* timer interrupt */
+  else if (CasMode && (p6key == 0xFA) && (keyGFlag == 1))
+    return(INTADDR_CMTSTOP); /* Press STOP while CMT Load or Save */
+  else if ((CasMode==CAS_LOADING) && (CmtIntFlag == INTFLAG_REQ)) {
+    /* CMT Loading */
+    CmtIntFlag = INTFLAG_NONE;
+    if(!feof(CasStream)) { /* if not EOF then Interrupt to Load 1 byte */
+      CasMode=CAS_LOADBYTE;
+      return(INTADDR_CMTREAD);
+    } else { /* if EOF then Error */
+      printf("tape file reached EOF\n");
+      CasMode=CAS_NONE;
+      return(INTADDR_CMTSTOP); /* Break */
+    }
+  } else if ((StrigIntFlag == INTFLAG_REQ) && IntSW_F3) /* if command 6 */
+    return(INTADDR_STRIG);
+  else if ((KeyIntFlag == INTFLAG_REQ) && IntSW_F3) /* if any key pressed */
+    if (keyGFlag == 0) return(INTADDR_KEY1); /* normal key */
+    else return(INTADDR_KEY2); /* special key (graphic key, etc.) */
+  else /* none */
+    return(INT_NONE);
 }

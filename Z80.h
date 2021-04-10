@@ -38,6 +38,7 @@
 #define EXTERN extern
 #endif
 
+extern int IntSW_F3;
 EXTERN int TimerIntFlag;
 EXTERN int CmtIntFlag;
 EXTERN int StrigIntFlag;
@@ -131,7 +132,7 @@ void ResetZ80(void);
 /*** at which emulation stopped is returned by this     ***/
 /*** function.                                          ***/
 /**********************************************************/
-void Z80(void);
+word Z80(void);
 
 /*** Memory access: ***************************************/
 /*** These functions are called when read or write to   ***/
