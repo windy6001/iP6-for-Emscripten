@@ -28,6 +28,7 @@
 ** last modified on Sat Apr 22 1996
 */
 
+#define SOUND // 後で消す
 #ifdef SOUND
 
 #define FREQ 2052654284
@@ -43,6 +44,15 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "SDL.h"
+
+SDL_AudioSpec want, have;
+SDL_AudioDeviceID dev;
+
+extern byte PSG[16];
+
+
+
 #ifdef SUN_AUDIO
 
 #ifdef PAGESIZE
@@ -53,6 +63,8 @@
 #include <sys/conf.h>
 #include <stropts.h>
 #include <signal.h>
+
+
 
 static unsigned char dsp_ulaw[256] = {
     31,   31,   31,   32,   32,   32,   32,   33, 
@@ -102,9 +114,9 @@ static unsigned char dsp_ulaw[256] = {
 #else /* SUN_AUDIO */
 
 #ifdef LINUX
-#include <linux/soundcard.h>
+//#include <linux/soundcard.h>
 #else
-#include <soundcard.h>
+//#include <soundcard.h>
 #endif
 
 #define AUDIO_CONV(A) (128+(A))
@@ -114,7 +126,7 @@ static unsigned char dsp_ulaw[256] = {
 */
 #ifndef SOUND_RATE
 #define SOUND_RATE 22050
-#endif SOUND_RATE
+#endif // SOUND_RATE
 
 /*
 ** Buffer size. SOUND_BUFSIZE should be equal to (or at least less than)
@@ -130,7 +142,7 @@ static unsigned char dsp_ulaw[256] = {
 */
 #define SOUND_NUM_OF_BUFS 8
 
-#endif SUN_AUDIO
+#endif // SUN_AUDIO
 
 pid_t soundchildpid=0;
 int soundpipe[2];
@@ -174,19 +186,54 @@ unsigned char envforms[16][32] = {
 	   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
 };
 
+int MakeWave( char *soundbuf, int len);
+
+
+void MyAudioCallback(void* userdata, Uint8* stream, int len) 
+{
+  char tmp[SOUND_BUFSIZE];
+  MakeWave(tmp ,len);
+  memcpy( stream , tmp , len);
+  printf("len=%d bufsize=%d \n",len , SOUND_BUFSIZE);
+}
+
+
 void SoundMainLoop(void);
 
 void TrashSound(void)
 {
   int J;
-  if(soundchildpid) { kill(soundchildpid,SIGKILL);wait(&J); }
-  if(sounddev!=-1) close(sounddev);
+//  if(soundchildpid) { kill(soundchildpid,SIGKILL);wait(&J); }
+//  if(sounddev!=-1) close(sounddev);
+  SDL_CloseAudioDevice(1);
 }
 
 int OpenSoundDev(void)
 {
   int I,J,K;
   
+  SDL_memset(&want, 0, sizeof(want)); /* または SDL_zero(want); */
+  want.freq = SOUND_RATE;
+  want.format = AUDIO_U8;
+  want.channels = 1;
+  want.samples = SOUND_BUFSIZE;
+  want.callback = MyAudioCallback;  /* この関数はどこか別の場所に書く. 詳細はSDL_AudioSpecを参照すること */
+
+  printf("Audio open...");
+  dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
+  if (dev == 0) {
+      printf("FAILED: %s\n", SDL_GetError());
+      return 0;
+  }  /* else {
+      if (have.format != want.format) { // 変わった？ 
+          printf("FAILED (Not support audio format) %X\n ",have.format);
+          return 0;
+      }
+  } */
+  SDL_PauseAudioDevice(dev, 0); /* 再生を開始する */
+
+
+#if 0
 #ifdef SUN_AUDIO
 
   if(Verbose) printf("  Opening /dev/audio...");
@@ -237,7 +284,8 @@ int OpenSoundDev(void)
   }
   if(I) { if(Verbose) puts("FAILED");return(0); }
 
-#endif SUN_AUDIO
+#endif // SUN_AUDIO
+#endif
 
   if(Verbose) puts("OK");
   return(1);
@@ -246,14 +294,13 @@ int OpenSoundDev(void)
 int InitSound(void )
 {
 
-  if(!UseSound) return;
-
   if(Verbose) puts("Starting sound server:");
 
   UseSound=0;sounddev=-1;soundchildpid=0;
 
   if( !OpenSoundDev() ) return(0);
 
+/*
   if(Verbose) printf("  Opening pipe...");
   if(pipe(soundpipe)==-1) { if(Verbose) puts("FAILED");return(0); }
   if(Verbose) { printf("OK\n  Forking..."); fflush( stdout ); }
@@ -271,11 +318,18 @@ int InitSound(void )
              fcntl( soundpipe[1], F_SETFL, O_NONBLOCK );
              close(sounddev);
   }
+*/
   UseSound=1;return(1);
 }
 
+
+
 void SoundOut(byte R,byte V)
 {
+  if( R != 0xff) {
+    PSG[R] = V;
+  }
+#if 0
   static unsigned char Buf[1024];
   static int Buffered = 0;
 
@@ -288,6 +342,7 @@ void SoundOut(byte R,byte V)
       Buf[Buffered++]=R; Buf[Buffered++]=V;
     }
   }
+#endif
 }
 
 void FlushSound(void)      { SoundOut(0xFF,0); }
@@ -298,6 +353,7 @@ void SCCOut(byte R,byte V) { if(UseSCC&&R<0x90) SoundOut(R+0x10,V); }
 
 void SoundSignal( int sig )
 {
+#if 0
   static ok_to_continue=0;
   
   switch( sig ) {
@@ -319,9 +375,12 @@ void SoundSignal( int sig )
     signal( SIGUSR2, SoundSignal );
     break;
   }
+#endif
 }
 
-void SoundMainLoop( void )
+//void SoundMainLoop( void )
+//{
+int MakeWave( char *soundbuf, int len)
 {
   int incr0=0, incr1=0, incr2=0, increnv=0, incrnoise=0;
   int statenoise=0, noisegen=1;
@@ -330,8 +389,8 @@ void SoundMainLoop( void )
   int vol0, vol1, vol2, volnoise, envelope = 15;
   int c0, c1, l0, l1, l2;
   unsigned char buf[2];
-  unsigned char soundbuf[SOUND_BUFSIZE];
-  unsigned char PSG[16];
+  //unsigned char soundbuf[SOUND_BUFSIZE];
+//  unsigned char PSG[16];
   pid_t parent;
   /* Variables for SCC emulation: */
   int SCCactive=0, SCCoutv=0;
@@ -339,18 +398,20 @@ void SoundMainLoop( void )
   int SCCcnt1=0, SCCcnt2=0, SCCcnt3=0, SCCcnt4=0, SCCcnt5=0;
   int SCCvol1, SCCvol2, SCCvol3, SCCvol4, SCCvol5;
   unsigned char SCC[256];
-	
+
+  printf("making wave...\n");
+#if 0	
   parent = getppid();
   signal( SIGUSR1, SoundSignal );
   signal( SIGUSR2, SoundSignal );
 	
-  for( i=0; i<16; ++i ) PSG[i] = 0;
+  for( i=0; i<16; ++i ) PSG[i] = 0;   // PSG 初期化すべき？
   PSG[7] = 077;
   PSG[8] = 8;
   PSG[9] = 8;
   PSG[10] = 8;
   for( i=0; i<256; ++i ) SCC[i] = 0;
-	
+
   fcntl( soundpipe[0], F_SETFL, O_NONBLOCK );
 	
   for( ;; ) {
@@ -385,7 +446,8 @@ void SoundMainLoop( void )
       if( r<16 ) {
       
         PSG[r] = v;
-			
+#endif
+    for(r=0; r<16; r++) {
         switch( r ) {
         case 0:
         case 1:
@@ -424,7 +486,8 @@ void SoundMainLoop( void )
           countenv=0;
           break;
         }
-
+    }
+#if 0
       } else if( UseSCC ) {
 
         if( !SCCactive ) {
@@ -467,6 +530,7 @@ void SoundMainLoop( void )
       }
       
     }
+#endif
 
     envelope = envforms[PSG[13]][(countenv>>16)&0x1F];
     if( ( countenv += increnv ) & 0xFFE00000 ) {
@@ -495,7 +559,7 @@ void SoundMainLoop( void )
     vol0 = ( PSG[7] & 001 ) ? 0 : vol0;
     vol1 = ( PSG[7] & 002 ) ? 0 : vol1;
     vol2 = ( PSG[7] & 004 ) ? 0 : vol2;
-		
+#if 0		
     if( SCCactive ) {
       SCCvol1 = SCC[0x8F] & 0x01 ? SCC[0x8A] & 0xF : 0;
       SCCvol2 = SCC[0x8F] & 0x02 ? SCC[0x8B] & 0xF : 0;
@@ -503,9 +567,10 @@ void SoundMainLoop( void )
       SCCvol4 = SCC[0x8F] & 0x08 ? SCC[0x8D] & 0xF : 0;
       SCCvol5 = SCC[0x8F] & 0x10 ? SCC[0x8E] & 0xF : 0;
     }
+#endif
 
     for( i=0; i<SOUND_BUFSIZE; ++i ) {
-
+#if 0
       if( SCCactive ) {
 
         SCCcnt1 = ( SCCcnt1 + SCCinc1 ) & 0xFFFF;
@@ -536,6 +601,7 @@ void SoundMainLoop( void )
         SCCoutv /= 128;
 
       }
+#endif
 
       /*
       ** These strange tricks are needed for getting rid
@@ -584,10 +650,12 @@ void SoundMainLoop( void )
 
     }
 
+#if 0
     if( sounddev == -1 ) {
       sleep(1);
       continue;
     }
+#endif
 
 #ifdef SUN_AUDIO
 
@@ -610,9 +678,9 @@ void SoundMainLoop( void )
 		
     write( sounddev, soundbuf, SOUND_BUFSIZE );
 
-#endif SUN_AUDIO
+#endif // SUN_AUDIO
 
   }
-}
+//}
 
-#endif SOUND
+#endif // SOUND

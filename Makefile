@@ -39,7 +39,7 @@
 CC = emcc
 
 # --- DEFINES ---
-DEFINES = -DUNIX -DLSB_FIRST 
+DEFINES = -DUNIX -DLSB_FIRST -DSOUND
 
 # --- CFLAGS ---
 ifeq ($(CC),gcc)
