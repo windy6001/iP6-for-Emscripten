@@ -12,7 +12,7 @@ isio さんの PC-6000/6600 シリーズエミュレータの iP6 を、Unix/X11
 
 Mac mini  (Mojave)でビルドしています。
 
-- Emscripten のビルド環境を作成してください。この辺りを参考にしてください。→（https://emscripten.org/docs/getting_started/downloads.html）
+- Emscripten のビルド環境を作成してください。この辺りを参考にしてください。→  https://emscripten.org/docs/getting_started/downloads.html
 - ソースリストのディレクトリの下にある rom というサブディレクトリにROMファイルをコピーしてください。
 - make を実行してください。
 - うまくいけば、iP6.html / iP6.data / iP6.js / iP6.wasm ファイルが出来上がります。
