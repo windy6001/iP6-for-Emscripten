@@ -322,6 +322,20 @@ int InitMachine(void) {
   return (1);
 }
 
+
+int trans(int in)
+{
+	int ret = in;
+	switch( in) {
+		case 0x4f: ret = 0x53; break;
+		case 0x50: ret = 0x51; break;
+		case 0x52: ret = 0x52; break;
+		case 0x51: ret = 0x54; break;
+	}
+	return ret;
+}
+
+
 /** Keyboard *************************************************/
 /** Check for keyboard events, parse them, and modify P6    **/
 /** keyboard matrix.                                        **/
@@ -354,7 +368,7 @@ void Keyboard(void) {
   if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
     // J=XLookupKeysym((XKeyEvent *)&E,0);
     J = e.key.keysym.sym;
-    // printf("%02X \n",J);
+    printf("J = %02X \n",J);
     /* for stick,strig */
 
     byte tmp;
@@ -419,6 +433,9 @@ void Keyboard(void) {
         J = 0; // MODE key when 60
 
       J &= 0xFF;
+      J = trans( J);
+      //printf("trans J=%X\n",J);
+      
       if (kbFlagGraph)
         Keys = Keys7[J];
       else if (kanaMode)
